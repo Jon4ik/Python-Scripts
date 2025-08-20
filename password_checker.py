@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QLabel,
                                QLineEdit, QPushButton, QWidget, QScrollArea, 
                                QHBoxLayout, QToolButton)
 from PySide6.QtCore import Qt, QThread, Signal
-from PySide6.QtGui import QIcon, QPixmap, QFont, QColor, QPainter, QImage
+from PySide6.QtGui import QIcon, QPixmap, QFont, QPainter, QImage
 
 class PasswordCheckThread(QThread):
     finished = Signal(dict)
@@ -22,7 +22,7 @@ class PasswordCheckThread(QThread):
             prefix, suffix = sha1_password[:5], sha1_password[5:]
             
             url = f"https://api.pwnedpasswords.com/range/{prefix}"
-            response = requests.get(url, timeout=10)
+            response = requests.get(url, timeout=5)
             
             if response.status_code == 200:
                 for line in response.text.splitlines():
@@ -44,7 +44,7 @@ class PasswordCheckerApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Проверка сложности пароля")
-        self.setFixedSize(550, 550)
+        self.setFixedSize(550, 500)
         
         self.scroll = QScrollArea()
         self.setCentralWidget(self.scroll)
@@ -100,7 +100,6 @@ class PasswordCheckerApp(QMainWindow):
         - Минимум 1 заглавная буква<br>
         - Минимум 1 строчная буква<br>
         - Минимум 1 цифра<br>
-        - Без простых комбинаций<br>
         - Не найден в утечках паролей
         """)
         self.requirements_list.setTextFormat(Qt.RichText)
@@ -173,7 +172,6 @@ class PasswordCheckerApp(QMainWindow):
         self.check_uppercase(password, successes, errors)
         self.check_lowercase(password, successes, errors)
         self.check_digits(password, successes, errors)
-        self.check_simple_combinations(password, successes, errors)
         
         self.check_button.setEnabled(False)
         self.result_text.setText("Проверка пароля через базу утечек...")
@@ -223,30 +221,6 @@ class PasswordCheckerApp(QMainWindow):
             successes.append("✓ Содержит цифры")
         else:
             errors.append("× Отсутствуют цифры")
-    
-    def check_simple_combinations(self, password, successes, errors):
-        lower_password = password.lower()
-        issues = []
-        
-        sequences = [
-            r'qwerty', r'йцукен', r'12345', r'54321', 
-            r'password', r'пароль', r'iloveyou', r'asdfgh',
-            r'abcdef', r'000000', r'111111', r'123123'
-        ]
-        
-        for seq in sequences:
-            if re.search(seq, lower_password):
-                issues.append(f"обнаружена простая последовательность '{seq}'")
-                break
-        
-        if re.search(r'(.)\1{3,}', lower_password):
-            issues.append("обнаружены повторяющиеся символы")
-        
-        if not issues:
-            successes.append("✓ Нет простых комбинаций")
-        else:
-            error_msg = "× Простые комбинации: " + ", ".join(issues)
-            errors.append(error_msg)
     
     def display_results(self, successes, errors):
         result_html = []
